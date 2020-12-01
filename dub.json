@@ -1,0 +1,12 @@
+{
+    "authors": [
+            "Max Klyga"
+    ],
+    "copyright": "Copyright © 2020, Max Klyga",
+    "dependencies": {
+            "sumtype": "~>1.0.0"
+    },
+    "description": "Functional Programming for D",
+    "license": "boost",
+    "name": "fpd"
+}

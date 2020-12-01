@@ -1,0 +1,15 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/fpd
+fpd.so
+fpd.dylib
+fpd.dll
+fpd.a
+fpd.lib
+fpd-test-*
+*.exe
+*.o
+*.obj
+*.lst
