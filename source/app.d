@@ -68,4 +68,10 @@ void main() {
     auto q = State!(int, int delegate(int))((int x) => x * 2);
     auto e = State!(int, int)(3);
     writeln(q.ap(e).run(1));
+
+    writeln();
+
+    auto v = IO!(int delegate(int))((int x) => x * 2);
+    auto c = IO!int(3);
+    writeln(v.ap(c).map!(x => x + 2).unsafePerform());
 }

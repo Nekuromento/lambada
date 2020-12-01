@@ -54,6 +54,7 @@ struct Maybe(T) {
     import std.traits: arity, isCallable;
     static if (isCallable!T && arity!T == 1) {
         import std.traits: Parameters, ReturnType;
+
         Maybe!(ReturnType!T) ap(Maybe!(Parameters!T[0]) x) {
             return this.chain!(f => x.map!f);
         }
@@ -94,7 +95,9 @@ struct Maybe(T) {
 
     template map(alias f) {
         import std.traits: ReturnType;
+
         import lambada.traits: toFunctionType;
+
         Maybe!(ReturnType!(toFunctionType!(f, T))) map() {
             import lambada.combinators: compose;
             return this.chain!(compose!(just, f));
@@ -103,7 +106,9 @@ struct Maybe(T) {
 
     template chain(alias f) {
         import std.traits: ReturnType;
+
         import lambada.traits: toFunctionType;
+
         alias Return = ReturnType!(toFunctionType!(f, T));
         template Type(R : E!D, alias E, D) if (is(R == Maybe!D)) {
             alias Type = D;

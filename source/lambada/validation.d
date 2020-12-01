@@ -23,9 +23,7 @@ template failure(R) {
 }
 
 struct Validation(L, R) {
-    import std.traits: isCallable, ReturnType;
-
-    import lambada.traits: hasConcat, toFunctionType;
+    import lambada.traits: hasConcat;
 
     import sumtype: SumType;
     alias type = SumType!(Failure!L, Success!R);
@@ -44,8 +42,10 @@ struct Validation(L, R) {
         this._ = _;
     }
 
+    import std.traits: arity, isCallable;
     static if (isCallable!R && arity!R == 1 && hasConcat!L) {
-        import std.traits: Parameters;
+        import std.traits: Parameters, ReturnType;
+
         Validation!(L, ReturnType!R) ap(Validation!(L, Parameters!R[0]) x) {
             return this.fold!(
                     a => x.fold!(
@@ -79,7 +79,11 @@ struct Validation(L, R) {
     }
 
     auto bimap(alias f, alias g)() {
+        import std.traits: ReturnType;
+
         import lambada.combinators: compose;
+        import lambada.traits: toFunctionType;
+
         alias l = toFunctionType!(f, L);
         alias r = toFunctionType!(g, R);
         alias onLeft = compose!(failure!(ReturnType!r), f);
@@ -88,9 +92,15 @@ struct Validation(L, R) {
         return this.fold!(onLeft, onRight);
     }
 
-    Validation!(L, ReturnType!(toFunctionType!(f, R))) map(alias f)() {
-        import lambada.combinators: identity;
-        return this.bimap!(identity, f);
+    template map(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
+        Validation!(L, ReturnType!(toFunctionType!(f, R))) map() {
+            import lambada.combinators: identity;
+            return this.bimap!(identity, f);
+        }
     }
 
     auto fold(alias f, alias g)() {

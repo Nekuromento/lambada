@@ -6,9 +6,7 @@ Reader!(T, T) ask(T)() {
 }
 
 struct Reader(T, U) {
-    import std.traits: arity, isCallable, ReturnType;
-
-    import lambada.traits: toFunctionType;
+    import std.traits: isCallable;
 
     U delegate(T) _;
 
@@ -33,6 +31,10 @@ struct Reader(T, U) {
     }
 
     template local(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
         static if (isCallable!f) {
             Reader!(ReturnType!f, U) local() {
                 import lambada.combinators: compose;
@@ -49,19 +51,31 @@ struct Reader(T, U) {
         }
     }
 
+    import std.traits: arity;
     static if (isCallable!U && arity!U == 1) {
-        import std.traits: Parameters;
+        import std.traits: Parameters, ReturnType;
+
         Reader!(T, ReturnType!U) ap(Reader!(T, Parameters!U[0]) x) {
             return this.chain!(f => x.map!f);
         }
     }
 
-    Reader!(T, ReturnType!(toFunctionType!(f, U))) map(alias f)() {
-        import lambada.combinators: compose;
-        return this.chain!(compose!(typeof(return), f));
+    template map(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
+        Reader!(T, ReturnType!(toFunctionType!(f, U))) map() {
+            import lambada.combinators: compose;
+            return this.chain!(compose!(typeof(return), f));
+        }
     }
 
     template chain(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
         alias Return = ReturnType!(toFunctionType!(f, U));
         template RightType(R : E!(D, G), alias E, D, G) if (is(R == Reader!(D, G)) && is(T == D)) {
             alias RightType = G;

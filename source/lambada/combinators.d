@@ -23,8 +23,18 @@ template compose(alias f, alias g) {
 }
 
 template flip(alias f) {
+    private struct Wrapper(alias a) {
+        auto opCall(U)(U b) {
+            return f(b)(a);
+        }
+    }
+
+    private Wrapper!T wrap(T)(T a) {
+        return Wrapper!a.init;
+    }
+
     auto flip(T)(T a) {
-        return b => f(b)(a);
+        return wrap(a);
     }
 }
 
@@ -33,7 +43,9 @@ auto identity(T)(T x) {
 }
 
 // Y combinator
-alias fix = f => {
-    immutable g = h => x => f(h(h))(x);
-    return g(g);
-};
+template fix(alias f) {
+    auto fix(T)(T x) {
+        alias g(alias h) = x => f(h!h)(x);
+        return g!g;
+    }
+}
