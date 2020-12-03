@@ -1,19 +1,12 @@
 module lambada.either;
 
-struct Left(T) {
-    T _;
-    alias _ this;
-}
+private struct Left(T) { T _; }
+private struct Right(T) { T _; }
 
 template left(R) {
     Either!(L, R) left(L)(L x) {
         return Either!(L, R)(Left!L(x));
     }
-}
-
-struct Right(T) {
-    T _;
-    alias _ this;
 }
 
 template right(L) {
@@ -22,11 +15,46 @@ template right(L) {
     }
 }
 
-struct Either(L, R) {
-    import sumtype: SumType;
-    alias type = SumType!(Left!L, Right!R);
+template tryCatch(alias f, alias g) {
+    import std.meta: AliasSeq;
+    import std.traits: ReturnType;
 
-    type _;
+    import lambada.traits: toFunctionType;
+
+    alias Empty = AliasSeq!();
+
+    alias l = ReturnType!(toFunctionType!(f, Empty));
+    alias r = ReturnType!(toFunctionType!(g, Exception));
+
+    Either!(l, r) tryCatch() {
+        try {
+            return right!l(f());
+        } catch (Exception e) {
+            return left!r(g(e));
+        }
+    }
+}
+
+struct Either(L, R) {
+    import lambada.traits: isMonoid;
+
+    struct Meta {
+        alias Constructor(T) = Either!(L, T);
+        alias Parameter = R;
+        alias of = right!L;
+        static if (isMonoid!L) {
+            enum empty = left!R(L.empty());
+        }
+    }
+
+    import sumtype: SumType;
+
+    SumType!(Left!L, Right!R) _;
+
+    alias of = Meta.of;
+    static if (isMonoid!L) {
+        enum empty = Meta.of;
+    }
 
     this(Left!L _) {
         this._ = _;
@@ -36,8 +64,30 @@ struct Either(L, R) {
         this._ = _;
     }
 
-    static Either of(R x) {
-        return right!L(x);
+    bool isLeft() {
+        import lambada.combinators: constant;
+        return this.fold!(constant!true, constant!false);
+    }
+
+    bool isRight() {
+        return !isLeft();
+    }
+
+    import lambada.maybe: Maybe;
+    Maybe!L getLeft() {
+        import lambada.maybe: just, none;
+        import lambada.combinators: constant;
+        return this.fold!(just, constant!(Maybe!L(none)));
+    }
+
+    Maybe!R getRight() {
+        import lambada.maybe: just, none;
+        import lambada.combinators: constant;
+        return this.fold!(constant!(Maybe!R(none)), just);
+    }
+
+    Maybe!R toMaybe() {
+        return getRight();
     }
 
     Either!(R, L) swap() {
@@ -53,22 +103,37 @@ struct Either(L, R) {
         }
     }
 
-    import lambada.traits: hasConcat;
-    static if (hasConcat!R) {
+    import lambada.traits: isSemigroup;
+    static if (isSemigroup!R) {
+        Either opBinary(string op)(Either x) if (op == "~") {
+            return this.fold!(left!R, a => x.chain!(b => right!L(a ~ b)));
+        }
+
         Either concat(Either x) {
-            return this.fold!(left!R, a => x.chain!(b => right!L(a.concat(b))));
+            return this ~ x;
         }
     }
 
-    import lambada.maybe;
-    Maybe!R toMaybe() {
-        import lambada.combinators: constant;
-        return this.fold!(constant!(Maybe!R(none)), just);
+    import lambada.validation: Validation;
+    Validation!(L, R) toValidation() {
+        import lambada.validation: success, failure;
+        return this.fold!(failure!R, success!L);
     }
 
-    import lambada.validation;
-    Validation!(L, R) toValidation() {
-        return this.fold!(failure!R, success!L);
+    U reduce(alias f, U)(U b) {
+        import lambada.combinators: constant;
+        return this.fold!(a => f(b, a), constant!b);
+    }
+
+    U reduceRight(alias f, U)(U b) {
+        import lambada.combinators: constant;
+        return this.fold!(a => f(a, b), constant!b);
+    }
+
+    static if (isMonoid!L) {
+        Either filter(alias f)() {
+            return this.fold!(identity, x => f(x) ? right(x) : empty);
+        }
     }
 
     auto bimap(alias f, alias g)() {
@@ -96,7 +161,6 @@ struct Either(L, R) {
         }
     }
 
-
     template chain(alias f) {
         import std.traits: ReturnType;
 
@@ -113,12 +177,41 @@ struct Either(L, R) {
         }
     }
 
+    static if (is(R: Either!(D, G), D, G) && is(D == L)) {
+        Either!(L, G) flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
+        }
+    }
+
     auto fold(alias f, alias g)() {
         import sumtype: match;
         return this._.match!(
             (Left!L x) => f(x._),
             (Right!R x) => g(x._),
         );
+    }
+
+    import lambada.traits: isApplicative;
+    static if (isApplicative!R) {
+        R.Meta.Constructor!(Either!(L, R.Meta.Parameter)) sequence() {
+            import lambada.combinators: identity;
+            return this.traverse!identity;
+        }
+    }
+
+    template traverse(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
+        alias Return = ReturnType!(toFunctionType!(f, R));
+
+        static if (isApplicative!Return) {
+            Return.Constructor!(Either!(L, Return.Parameter)) traverse() {
+                return this.fold!(compose!(Return.of, left!B), x => f(x).map!(right!L));
+            }
+        }
     }
 
     alias _ this;

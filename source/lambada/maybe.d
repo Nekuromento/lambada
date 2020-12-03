@@ -1,35 +1,58 @@
 module lambada.maybe;
 
-struct None {}
+private struct None {}
+private struct Some(T) { T _; }
 
-immutable none = None();
+Maybe!None none() {
+    return Maybe!None();
+}
 
-alias Some(T) = T;
+Maybe!T just(T)(T x) {
+    return Maybe!T(Some!T(x));
+}
 
-Maybe!T just(T)(T x) if (!is(T == None)) {
-    return Maybe!T(x);
+template tryCatch(alias f) {
+    import std.meta: AliasSeq;
+    import std.traits: ReturnType;
+
+    import lambada.traits: toFunctionType;
+
+    alias Empty = AliasSeq!();
+
+    Maybe!(ReturnType!(toFunctionType!(f, Empty))) tryCatch() {
+        scope(failure) return none;
+        return just(f());
+    }
 }
 
 struct Maybe(T) {
-    import sumtype: SumType;
-    alias type = SumType!(Some!T, None);
-
-    type _;
-
-    this(None _) {
-        this._ = _;
+    struct Meta {
+        alias Constructor(U) = Maybe!U;
+        alias Parameter = T;
+        alias of = just;
+        alias empty = none;
     }
 
-    static Maybe empty() {
-        return Maybe(none);
-    }
+    alias of = Meta.of;
+    alias empty = Meta.empty;
 
-    this(Some!T _) {
-        this._ = _;
-    }
+    static if (!is(T == None)) {
+        import sumtype: SumType;
 
-    static Maybe of(T x) {
-        return just(x);
+        SumType!(Some!T, None) _;
+        alias _ this;
+
+        this(None _) {
+            this._ = _;
+        }
+
+        this(Some!T _) {
+            this._ = _;
+        }
+
+        this(Maybe!None _) {
+            this._ = None();
+        }
     }
 
     bool isSome() {
@@ -41,7 +64,7 @@ struct Maybe(T) {
         return !isSome();
     }
 
-    Maybe!T orElse(Maybe!T x) {
+    Maybe orElse(Maybe x) {
         import lambada.combinators: constant;
         return this.fold!(just, constant!x);
     }
@@ -60,21 +83,27 @@ struct Maybe(T) {
         }
     }
 
-    import lambada.traits: hasConcat;
-    static if (hasConcat!T) {
+    import lambada.traits: isSemigroup;
+    static if (isSemigroup!T) {
+        Maybe opBinary(string op)(Maybe x) if (op == "~") {
+            return this.chain!(a => x.map!(b => a ~ b));
+        }
+
         Maybe concat(Maybe x) {
-            return this.chain!(a => x.map!(b => a.concat(b)));
+            return this ~ x;
         }
     }
 
-    import lambada.either;
+    import lambada.either: Either;
     Either!(L, T) toEither(L)(L x) {
+        import lambada.either: right, left;
         import lambada.combinators: compose, constant;
         return this.fold!(right!L, compose!(left!T, constant!x));
     }
 
-    import lambada.validation;
+    import lambada.validation: Validation;
     Validation!(L, R) toValidation(L)(L x) {
+        import lambada.validation: success, failure;
         import lambada.combinators: compose, constant;
         return this.fold!(success!L, compose!(failure!T, constant!x));
     }
@@ -121,13 +150,47 @@ struct Maybe(T) {
         }
     }
 
-    auto fold(alias f, alias g)() {
-        import sumtype: match;
-        return this._.match!(
-            (Some!T x) => f(x),
-            (None _) => g(_),
-        );
+    static if (is(T: Maybe!U, U)) {
+        Maybe!U flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
+        }
     }
 
-    alias _ this;
+    auto fold(alias f, alias g)() {
+        static if (is(T == None)) {
+            return g(None());
+        } else {
+            import sumtype: match;
+            return this._.match!(
+                (Some!T x) => f(x._),
+                (None _) => g(_),
+            );
+        }
+    }
+
+    import lambada.traits: isApplicative;
+    static if (isApplicative!T) {
+        T.Meta.Constructor!(Maybe!(T.Meta.Parameter)) sequence() {
+            import lambada.combinators: identity;
+            return this.traverse!identity;
+        }
+    }
+
+    template traverse(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
+        alias Return = ReturnType!(toFunctionType!(f, T));
+
+        static if (isApplicative!Return) {
+            Return.Meta.Constructor!(Maybe!(Return.Meta.Parameter)) traverse() {
+                return this.fold!(
+                    x => f(x).map!just,
+                    _ => Return.of(Maybe!(Return.Meta.Parameter)(none))
+                );
+            }
+        }
+    }
 }

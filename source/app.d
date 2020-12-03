@@ -1,42 +1,57 @@
 import std.typecons: tuple;
 import std.stdio: writeln;
 
-import lambada.maybe;
 import lambada.either;
-import lambada.reader;
-import lambada.validation;
 import lambada.io;
+import lambada.maybe;
+import lambada.maybeT;
+import lambada.reader;
 import lambada.state;
+import lambada.validation;
+import lambada.writer;
 
 struct str {
-    string _;
+    static str empty() {
+        return str.init;
+    }
 
-    str concat(str x) {
-        return str(_ ~ x._);
+    string[] _;
+
+    str opBinary(string op)(str x) if (op == "~") {
+        return str(this._ ~ x._);
     }
 
     alias _ this;
 }
 
 void main() {
-    Maybe!int x = just(4);
-    Maybe!int y = none;
+    alias M = Maybe!int;
+    Maybe!int x = M.of(4);
+    Maybe!int y = M.empty;
     auto z = x.map!(a => a * 2).chain!(a => y.orElse(just(2)).chain!(b => just(a + b)));
 
     auto f = just((int x) => x / 2);
     z = f.ap(z);
     writeln(z.getOrElse(0));
+    writeln(just(just("hello") ~ just(" ") ~ just("world")).flatten);
 
     writeln();
 
     alias R = Reader!(int, int);
-    auto r = R(4);
+    auto r = R.of(4);
     auto g = R((int x) => x + 2);
     auto a = ask!int;
     auto b = r.map!(x => x * 2).chain!(x => g.chain!(y => a.chain!(q => R((int z) => q + x + y + z))));
     writeln(b.run(10));
     auto h = Reader!(int, int delegate(int))((int x) => (int y) => y + x);
     writeln(h.ap(b).run(10));
+
+    writeln(just(g).sequence().run(10));
+
+    alias ReaderMaybe = MaybeT!(R.Meta);
+    auto ra = ReaderMaybe!int.of((int x) => x + 2);
+    auto rb = ReaderMaybe!int.of(3);
+    writeln(ra.ap(rb).run.run(10));
 
     writeln();
 
@@ -49,29 +64,36 @@ void main() {
 
     writeln();
 
-    auto n = success!str(str("3"));
-    auto m = failure!str(str("hello "));
-    auto o = failure!str(str("world"));
+    auto n = success!string("3");
+    auto m = failure!string("hello ");
+    auto o = failure!string("world");
 
-    writeln(n.concat(m).concat(o));
+    writeln(n ~ m ~ o);
 
     writeln();
 
-    auto j = State!(int, string)("X");
+    alias S = State!(int, int);
+    auto j = S.of("X");
     auto p = put(5);
     auto sp = p.chain!(_ => j.map!(_ => _));
     writeln(sp.run(0));
 
-    auto k = get!int.chain!(x => put(x + 1).chain!(_ => get!int.chain!(y => State!(int, int)(y + x))));
+    auto k = get!int.chain!(x => put(x + 1).chain!(_ => get!int.chain!(y => S.of(y + x))));
     writeln(k.run(256));
 
-    auto q = State!(int, int delegate(int))((int x) => x * 2);
-    auto e = State!(int, int)(3);
+    auto q = S.of((int x) => x * 2);
+    auto e = S.of(3);
     writeln(q.ap(e).run(1));
 
     writeln();
 
-    auto v = IO!(int delegate(int))((int x) => x * 2);
-    auto c = IO!int(3);
+    alias I = IO!int;
+    auto v = I.of((int x) => x * 2);
+    auto c = I.of(3);
     writeln(v.ap(c).map!(x => x + 2).unsafePerform());
+
+    alias W = Writer!(str, int);
+    auto wa = W(() => tuple(0, str(["hello"])));
+    auto wb = tell(str(["world"]));
+    writeln(wa.chain!(x => wb.chain!(_ => W.of(x))).listen().censor!(_ => _).run());
 }

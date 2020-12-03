@@ -1,19 +1,12 @@
 module lambada.validation;
 
-struct Success(T) {
-    T _;
-    alias _ this;
-}
+private struct Success(T) { T _; }
+private struct Failure(T) { T _; }
 
 template success(L) {
     Validation!(L, R) success(R)(R x) {
         return Validation!(L, R)(Success!R(x));
     }
-}
-
-struct Failure(T) {
-    T _;
-    alias _ this;
 }
 
 template failure(R) {
@@ -23,33 +16,46 @@ template failure(R) {
 }
 
 struct Validation(L, R) {
-    import lambada.traits: hasConcat;
+    struct Meta {
+        alias Constructor(T) = Validation!(L, T);
+        alias Parameter = R;
+        alias of = success!L;
+    }
 
     import sumtype: SumType;
-    alias type = SumType!(Failure!L, Success!R);
 
-    type _;
+    SumType!(Failure!L, Success!R) _;
+
+    alias of = Meta.of;
 
     this(Success!R _) {
         this._ = _;
-    }
-
-    static Validation of(R x) {
-        return success!L(x);
     }
 
     this(Failure!L _) {
         this._ = _;
     }
 
+    bool isSuccess() {
+        import lambada.combinators: constant;
+        return this.fold!(constant!false, constant!true);
+    }
+
+    bool isFailure() {
+        return !isSuccess();
+    }
+
     import std.traits: arity, isCallable;
-    static if (isCallable!R && arity!R == 1 && hasConcat!L) {
+
+    import lambada.traits: isSemigroup;
+
+    static if (isCallable!R && arity!R == 1 && isSemigroup!L) {
         import std.traits: Parameters, ReturnType;
 
         Validation!(L, ReturnType!R) ap(Validation!(L, Parameters!R[0]) x) {
             return this.fold!(
                     a => x.fold!(
-                        b => failure!(ReturnType!R)(a.concat(b)),
+                        b => failure!(ReturnType!R)(a ~ b),
                         _ => failure!(ReturnType!R)(a)
                     ),
                     f => x.map!f
@@ -57,24 +63,30 @@ struct Validation(L, R) {
         }
     }
 
-    static if (hasConcat!L && hasConcat!R) {
-        Validation concat(Validation x) {
+    static if (isSemigroup!L && isSemigroup!R) {
+        Validation opBinary(string op)(Validation x) if (op == "~") {
             import lambada.combinators: identity;
             return this.fold!(
-                a => x.bimap!(b => a.concat(b), identity),
-                a => x.map!(b => a.concat(b))
+                a => x.bimap!(b => a ~ b, identity),
+                a => x.map!(b => a ~ b)
             );
+        }
+
+        Validation concat(Validation x) {
+            return this ~ x;
         }
     }
 
-    import lambada.maybe;
+    import lambada.maybe: Maybe;
     Maybe!R toMaybe() {
+        import lambada.maybe: just, none;
         import lambada.combinators: constant;
         return this.fold!(constant!(Maybe!R(none)), just);
     }
 
-    import lambada.either;
+    import lambada.either: Either;
     Either!(L, R) toEither() {
+        import lambada.either: left, right;
         return this.fold!(left!R, right!L);
     }
 

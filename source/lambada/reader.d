@@ -6,20 +6,21 @@ Reader!(T, T) ask(T)() {
 }
 
 struct Reader(T, U) {
-    import std.traits: isCallable;
+    struct Meta {
+        alias Constructor(V) = Reader!(T, V);
+        alias Parameter = U;
+        static Reader!(T, V) of(V)(V x) {
+            import lambada.combinators: constant;
+            alias f = constant!x;
+            return Reader!(T, V)(&f!T);
+        }
+    }
 
     U delegate(T) _;
 
-    this(U x) {
-        import lambada.combinators: constant;
-        alias f = constant!x;
-        this._ = &f!T;
-    }
+    alias of = Meta.of;
 
-    static Reader of(U x) {
-        return Reader(x);
-    }
-
+    import std.traits: isCallable;
     this(F)(F f) if (isCallable!F) {
         import lambada.combinators: apply;
         alias x = apply!f;
@@ -31,18 +32,19 @@ struct Reader(T, U) {
     }
 
     template local(alias f) {
-        import std.traits: ReturnType;
+        import std.traits: Parameters, ReturnType;
 
         import lambada.traits: toFunctionType;
 
-        static if (isCallable!f) {
-            Reader!(ReturnType!f, U) local() {
+        static if (isCallable!f && is(ReturnType!f == T)) {
+            Reader!(Parameters!f[0], U) local() {
                 import lambada.combinators: compose;
                 //XXX: hack to fix delegates referencing dead objects:
                 //     capture local frame instead of this
                 auto _run = this._;
+                alias x = compose!(_run, f);
 
-                return typeof(return)(compose!(_run, f));
+                return typeof(return)(&x!(Parameters!f[0]));
             }
         } else {
             auto local(G)() {
@@ -67,7 +69,7 @@ struct Reader(T, U) {
 
         Reader!(T, ReturnType!(toFunctionType!(f, U))) map() {
             import lambada.combinators: compose;
-            return this.chain!(compose!(typeof(return), f));
+            return this.chain!(compose!(this.of, f));
         }
     }
 
@@ -88,6 +90,13 @@ struct Reader(T, U) {
             auto _run = this._;
 
             return Reader!(T, G)((T x) => f(_run(x)).run(x));
+        }
+    }
+
+    static if (is(U: Reader!(D, G), D, G) && is(D == T)) {
+        Reader!(T, G) flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
         }
     }
 }

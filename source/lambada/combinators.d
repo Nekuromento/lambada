@@ -22,6 +22,12 @@ template compose(alias f, alias g) {
     }
 }
 
+template compose(alias f, alias g, alias h) {
+    auto compose(T...)(T x) {
+        return f(g(h(x)));
+    }
+}
+
 template flip(alias f) {
     private struct Wrapper(alias a) {
         auto opCall(U)(U b) {

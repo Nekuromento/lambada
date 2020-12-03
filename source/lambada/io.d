@@ -1,20 +1,21 @@
 module lambada.io;
 
 struct IO(T) {
-    import std.traits: arity, isCallable;
+    struct Meta {
+        alias Constructor(U) = IO!U;
+        alias Parameter = T;
+        static IO!U of(U)(U x) {
+            import lambada.combinators: constant;
+            alias f = constant!x;
+            return IO!U(&f!());
+        }
+    }
 
     T delegate() _;
 
-    this(T x) {
-        import lambada.combinators: constant;
-        alias f = constant!x;
-        this._ = &f!();
-    }
+    alias of = Meta.of;
 
-    static IO of(T x) {
-        return IO(x);
-    }
-
+    import std.traits: arity, isCallable;
     this(F)(F f) if (isCallable!F && arity!F == 0) {
         import lambada.combinators: apply;
         alias x = apply!f;
@@ -29,7 +30,6 @@ struct IO(T) {
         import std.traits: Parameters, ReturnType;
 
         IO!(ReturnType!T) ap(IO!(Parameters!T[0]) x) {
-            import lambada.combinators: apply;
             return this.chain!(f => x.map!f);
         }
     }
@@ -41,7 +41,7 @@ struct IO(T) {
 
         IO!(ReturnType!(toFunctionType!(f, T))) map() {
             import lambada.combinators: compose;
-            return this.chain!(compose!(typeof(return), f));
+            return this.chain!(compose!(this.of, f));
         }
     }
 
@@ -62,6 +62,13 @@ struct IO(T) {
             auto _unsafePerform = this._;
 
             return IO!G(() => f(_unsafePerform()).unsafePerform());
+        }
+    }
+
+    static if (is(T: IO!U, U)) {
+        IO!U flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
         }
     }
 }

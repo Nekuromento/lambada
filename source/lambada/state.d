@@ -26,20 +26,22 @@ template modify(alias f) {
 }
 
 struct State(S, A) {
-    import std.traits: isCallable, arity;
+    struct Meta {
+        alias Constructor(T) = State!(S, T);
+        alias Parameter = A;
+        static State!(S, B) of(B)(B x) {
+            import std.typecons: tuple;
+            return State!(S, B)((S y) => tuple(x, y));
+        }
+    }
+
     import std.typecons: Tuple;
 
     Tuple!(A, S) delegate(S) _;
 
-    this(A x) {
-        import std.typecons: tuple;
-        this._ = y => tuple(x, y);
-    }
+    alias of = Meta.of;
 
-    static State of(A x) {
-        return State(x);
-    }
-
+    import std.traits: isCallable, arity;
     this(F)(F f) if (isCallable!F) {
         import lambada.combinators: apply;
         alias x = apply!f;
@@ -60,6 +62,7 @@ struct State(S, A) {
 
     static if (isCallable!A && arity!A == 1) {
         import std.traits: Parameters, ReturnType;
+
         State!(S, ReturnType!A) ap(State!(S, Parameters!A[0]) x) {
             return this.chain!(f => x.map!f);
         }
@@ -72,7 +75,7 @@ struct State(S, A) {
 
         State!(S, ReturnType!(toFunctionType!(f, A))) map() {
             import lambada.combinators: compose;
-            return this.chain!(compose!(typeof(return), f));
+            return this.chain!(compose!(this.of, f));
         }
     }
 
@@ -96,6 +99,13 @@ struct State(S, A) {
                 auto result = _run(s);
                 return f(result[0]).run(result[1]);
             });
+        }
+    }
+
+    static if (is(A: State!(D, G), D, G) && is(D == S)) {
+        State!(S, G) flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
         }
     }
 }
