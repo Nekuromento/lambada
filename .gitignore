@@ -13,3 +13,4 @@ fpd-test-*
 *.o
 *.obj
 *.lst
+*.swp
