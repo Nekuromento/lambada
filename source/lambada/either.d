@@ -86,12 +86,20 @@ struct Either(L, R) {
         return this.fold!(constant!(Maybe!R(none)), just);
     }
 
-    Maybe!R toMaybe() {
-        return getRight();
-    }
+    alias toMaybe = getRight;
 
     Either!(R, L) swap() {
         return this.fold!(right!R, left!L);
+    }
+
+    R getOrElse(R x) {
+        import lambada.combinators: identity, constant;
+        return this.fold!(constant!x, identity);
+    }
+
+    Either orElse(Either x) {
+        import lambada.combinators: constant;
+        return this.fold!(constant!x, right!L);
     }
 
     import std.traits: arity, isCallable;
@@ -209,7 +217,11 @@ struct Either(L, R) {
 
         static if (isApplicative!Return) {
             Return.Meta.Constructor!(Either!(L, Return.Meta.Parameter)) traverse() {
-                return this.fold!(compose!(Return.Meta.of, left!B), x => f(x).map!(right!L));
+                import lambada.combinators: compose;
+                return this.fold!(
+                    compose!(Return.Meta.of, left!(Return.Meta.Parameter)),
+                    x => f(x).map!(right!L)
+                );
             }
         }
     }

@@ -2,6 +2,7 @@ import std.typecons: tuple;
 import std.stdio: writeln;
 
 import lambada.either;
+import lambada.eitherT;
 import lambada.io;
 import lambada.maybe;
 import lambada.maybeT;
@@ -46,6 +47,8 @@ void main() {
     auto h = Reader!(int, int delegate(int))((int x) => (int y) => y + x);
     writeln(h.ap(b).run(10));
 
+    writeln(just(g));
+    writeln(just(g).sequence());
     writeln(just(g).sequence().run(10));
 
     alias ReaderMaybe = MaybeTMeta!(ReaderMeta!int);
@@ -61,6 +64,11 @@ void main() {
     writeln(u);
     auto i = left!(int delegate(int))(true);
     writeln(i.ap(u));
+
+    alias MaybeEither = EitherTMeta!(MaybeMeta, int);
+    auto me = MaybeEither.of("hi");
+    auto mf = MaybeEither.of((string x) => x ~ "!");
+    writeln(mf.ap(me).swap().run.sequence());
 
     writeln();
 

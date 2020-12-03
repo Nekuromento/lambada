@@ -73,7 +73,7 @@ template MaybeT(M) {
         }
     }
 
-    auto transformer(T)(T x) {
+    auto transformer(T)(T x) if (isMonad!T) {
         return Transformer!(T.Meta.Parameter.Meta.Parameter)(x);
     }
 
