@@ -208,8 +208,8 @@ struct Either(L, R) {
         alias Return = ReturnType!(toFunctionType!(f, R));
 
         static if (isApplicative!Return) {
-            Return.Constructor!(Either!(L, Return.Parameter)) traverse() {
-                return this.fold!(compose!(Return.of, left!B), x => f(x).map!(right!L));
+            Return.Meta.Constructor!(Either!(L, Return.Meta.Parameter)) traverse() {
+                return this.fold!(compose!(Return.Meta.of, left!B), x => f(x).map!(right!L));
             }
         }
     }
