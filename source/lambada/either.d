@@ -216,3 +216,5 @@ struct Either(L, R) {
 
     alias _ this;
 }
+
+alias EitherMeta(L) = Either!(L, typeof(null)).Meta;

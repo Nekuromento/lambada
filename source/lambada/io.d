@@ -72,3 +72,5 @@ struct IO(T) {
         }
     }
 }
+
+alias IOMeta = IO!(typeof(null)).Meta;

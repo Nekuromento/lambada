@@ -125,3 +125,5 @@ struct Validation(L, R) {
 
     alias _ this;
 }
+
+alias ValidationMeta(T) = Validation!(T, typeof(null)).Meta;

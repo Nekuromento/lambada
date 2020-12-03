@@ -109,3 +109,5 @@ struct State(S, A) {
         }
     }
 }
+
+alias StateMeta(T) = State!(T, typeof(null)).Meta;

@@ -100,3 +100,5 @@ struct Reader(T, U) {
         }
     }
 }
+
+alias ReaderMeta(T) = Reader!(T, typeof(null)).Meta;

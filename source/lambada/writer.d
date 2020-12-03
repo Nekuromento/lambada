@@ -172,3 +172,5 @@ struct Writer(W, A) {
         }
     }
 }
+
+alias WriterMeta(T) = Writer!(T, typeof(null)).Meta;

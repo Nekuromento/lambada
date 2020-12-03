@@ -25,7 +25,7 @@ struct str {
 }
 
 void main() {
-    alias M = Maybe!int;
+    alias M = MaybeMeta;
     Maybe!int x = M.of(4);
     Maybe!int y = M.empty;
     auto z = x.map!(a => a * 2).chain!(a => y.orElse(just(2)).chain!(b => just(a + b)));
@@ -48,9 +48,9 @@ void main() {
 
     writeln(just(g).sequence().run(10));
 
-    alias ReaderMaybe = MaybeT!(R.Meta);
-    auto ra = ReaderMaybe!int.of((int x) => x + 2);
-    auto rb = ReaderMaybe!int.of(3);
+    alias ReaderMaybe = MaybeTMeta!(ReaderMeta!int);
+    auto ra = ReaderMaybe.of((int x) => x + 2);
+    auto rb = ReaderMaybe.of(3);
     writeln(ra.ap(rb).run.run(10));
 
     writeln();
@@ -72,7 +72,7 @@ void main() {
 
     writeln();
 
-    alias S = State!(int, int);
+    alias S = StateMeta!int;
     auto j = S.of("X");
     auto p = put(5);
     auto sp = p.chain!(_ => j.map!(_ => _));
@@ -87,7 +87,7 @@ void main() {
 
     writeln();
 
-    alias I = IO!int;
+    alias I = IOMeta;
     auto v = I.of((int x) => x * 2);
     auto c = I.of(3);
     writeln(v.ap(c).map!(x => x + 2).unsafePerform());

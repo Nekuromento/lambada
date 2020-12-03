@@ -79,3 +79,8 @@ template MaybeT(M) {
 
     alias MaybeT = Transformer;
 }
+
+template MaybeTMeta(M) {
+    alias T = MaybeT!M;
+    alias MaybeTMeta = T!(typeof(null)).Meta;
+}

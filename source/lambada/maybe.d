@@ -194,3 +194,5 @@ struct Maybe(T) {
         }
     }
 }
+
+alias MaybeMeta = Maybe!(typeof(null)).Meta;
