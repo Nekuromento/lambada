@@ -1,7 +1,13 @@
 module lambada.maybeT;
 
-template MaybeT(M) {
+template MaybeT(MM) {
     import lambada.traits: isMonad;
+
+    static if (isMonad!MM) {
+        alias M = MM.Meta;
+    } else {
+        alias M = MM;
+    }
 
     struct Transformer(T) if (isMonad!(M.Constructor!T)) {
         struct Meta {

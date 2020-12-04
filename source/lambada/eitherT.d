@@ -1,35 +1,48 @@
 module lambada.eitherT;
 
-template EitherT(M) {
+template EitherT(MM) {
     import lambada.traits: isMonad;
+    import lambada.either: eleft = left, eright = right;
+
+    static if (isMonad!MM) {
+        alias M = MM.Meta;
+    } else {
+        alias M = MM;
+    }
+
+    template _rightM(U) {
+        Transformer!(U, T.Meta.Parameter) leftM(T)(T x) if (isMonad!T) {
+            return x.map!(eright!U);
+        }
+    }
+
+    template _leftM(V) {
+        Transformer!(T.Meta.Parameter, V) leftM(T)(T x) if (isMonad!T) {
+            return x.map!(eleft!V);
+        }
+    }
+
+    template _left(V) {
+        Transformer!(U, V) left(U)(U x) {
+            return transformer!U(M.of(eleft!V(x)));
+        }
+    }
+
+    template _right(U) {
+        import lambada.combinators: compose;
+        alias _right = compose!(transformer!U, M.of, eright!U);
+    }
 
     struct Transformer(L, R) if (isMonad!(M.Constructor!R)) {
         struct Meta {
             alias Constructor(U) = Transformer!(L, U);
             alias Parameter = R;
 
-            import lambada.combinators: compose;
-            import lambada.either: eleft = left, eright = right;
-            alias of = compose!(transformer!L, M.of, eright!L);
-
-            template rightM(U) {
-                Transformer!(U, T.Meta.Parameter) leftM(T)(T x) if (isMonad!T) {
-                    return x.map!(eright!U);
-                }
-            }
-
-            template leftM(V) {
-                Transformer!(T.Meta.Parameter, V) leftM(T)(T x) if (isMonad!T) {
-                    return x.map!(eleft!V);
-                }
-            }
-
-            template left(V) {
-                Transformer!(U, V) left(U)(U x) {
-                    return transformer!U(M.of(eleft!V(x)));
-                }
-            }
-            alias right = of;
+            alias of = right;
+            alias right = _right!L;
+            alias rightM = _rightM!L;
+            alias left = _left!R;
+            alias leftM = _leftM!R;
         }
 
         import lambada.either: Either;
@@ -65,8 +78,8 @@ template EitherT(M) {
             alias U = RightType!Return;
 
             Transformer!(L, U) chain() {
-                import lambada.combinators: compose;
                 import lambada.either: left;
+                import lambada.combinators: compose;
 
                 return transformer!L(this.run.chain!(
                     x => x.fold!(
@@ -97,8 +110,8 @@ template EitherT(M) {
             alias r = toFunctionType!(g, R);
 
             Transformer!(ReturnType!l, ReturnType!r) bimap() {
-                import lambada.combinators: compose;
                 import lambada.either: left, right;
+                import lambada.combinators: compose;
 
                 alias onLeft = compose!(M.of, left!(ReturnType!r), f);
                 alias onRight = compose!(M.of, right!(ReturnType!l), g);

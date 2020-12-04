@@ -14,6 +14,7 @@ struct Reader(T, U) {
             alias f = constant!x;
             return Reader!(T, V)(&f!T);
         }
+        alias ask = .ask!T;
     }
 
     U delegate(T) _;
@@ -30,26 +31,19 @@ struct Reader(T, U) {
     U run(T x) {
         return _(x);
     }
+    alias opCall = run;
 
-    template local(alias f) {
+    template local(F) if (isCallable!f && is(ReturnType!f == L)) {
         import std.traits: Parameters, ReturnType;
 
-        import lambada.traits: toFunctionType;
+        Reader!(Parameters!f[0], R) local(F f) {
+            import lambada.combinators: compose;
+            //XXX: hack to fix delegates referencing dead objects:
+            //     capture local frame instead of this
+            auto _run = this._;
 
-        static if (isCallable!f && is(ReturnType!f == T)) {
-            Reader!(Parameters!f[0], U) local() {
-                import lambada.combinators: compose;
-                //XXX: hack to fix delegates referencing dead objects:
-                //     capture local frame instead of this
-                auto _run = this._;
-                alias x = compose!(_run, f);
-
-                return typeof(return)(&x!(Parameters!f[0]));
-            }
-        } else {
-            auto local(G)() {
-                return this.local!(f!G);
-            }
+            alias x = compose!(_run, f);
+            return typeof(return)(&x!(Parameters!f[0]));
         }
     }
 

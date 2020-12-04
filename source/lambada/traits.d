@@ -31,9 +31,9 @@ enum hasEmpty(T) = __traits(compiles, T.empty()) &&
 enum isMonoid(T) = isSemigroup!T && hasEmpty!T;
 
 template toFunctionType(alias f, T) {
-    import std.traits: isSomeFunction;
+    import std.traits: isCallable;
 
-    static if (isSomeFunction!f) {
+    static if (isCallable!f) {
         alias toFunctionType = f;
     } else {
         alias toFunctionType = f!T;

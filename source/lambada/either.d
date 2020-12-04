@@ -41,10 +41,12 @@ struct Either(L, R) {
     struct Meta {
         alias Constructor(T) = Either!(L, T);
         alias Parameter = R;
-        alias of = right!L;
+        alias of = right;
         static if (isMonoid!L) {
             enum empty = left!R(L.empty());
         }
+        alias left = .left!R;
+        alias right = .right!L;
     }
 
     import sumtype: SumType;

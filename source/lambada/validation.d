@@ -19,7 +19,9 @@ struct Validation(L, R) {
     struct Meta {
         alias Constructor(T) = Validation!(L, T);
         alias Parameter = R;
-        alias of = success!L;
+        alias of = .success!L;
+        alias success = .success!L;
+        alias failure = .failure!R;
     }
 
     import sumtype: SumType;

@@ -7,6 +7,7 @@ import lambada.io;
 import lambada.maybe;
 import lambada.maybeT;
 import lambada.reader;
+import lambada.readerT;
 import lambada.state;
 import lambada.validation;
 import lambada.writer;
@@ -47,9 +48,15 @@ void main() {
     auto h = Reader!(int, int delegate(int))((int x) => (int y) => y + x);
     writeln(h.ap(b).run(10));
 
-    writeln(just(g));
-    writeln(just(g).sequence());
     writeln(just(g).sequence().run(10));
+
+    alias MaybeReader = ReaderTMeta!(MaybeMeta, int);
+    auto rs = MaybeReader.ask;
+    auto rm = MaybeReader.of((int x) => x + 2);
+    auto re = MaybeReader.of(10);
+    auto rd = MaybeReader.Constructor!int((int x) => just(x + 2));
+    writeln(rm.ap(rs.chain!(x => rd.map!(y => x + y))).run(5));
+    writeln(rm.ap(re).run(10));
 
     alias ReaderMaybe = MaybeTMeta!(ReaderMeta!int);
     auto ra = ReaderMaybe.of((int x) => x + 2);

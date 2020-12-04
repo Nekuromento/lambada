@@ -31,6 +31,8 @@ struct Maybe(T) {
         alias Parameter = T;
         alias of = just;
         alias empty = none;
+        alias just = .just;
+        alias none = .none;
     }
 
     alias of = Meta.of;
