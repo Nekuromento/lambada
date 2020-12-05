@@ -11,13 +11,13 @@ template EitherT(MM) {
     }
 
     template _rightM(U) {
-        Transformer!(U, T.Meta.Parameter) leftM(T)(T x) if (isMonad!T) {
+        Transformer!(U, T.Meta.Parameter) leftM(T)(T x) if (isMonad!T && is(M.Constructor!(T.Meta.Parameter) == T)) {
             return x.map!(eright!U);
         }
     }
 
     template _leftM(V) {
-        Transformer!(T.Meta.Parameter, V) leftM(T)(T x) if (isMonad!T) {
+        Transformer!(T.Meta.Parameter, V) leftM(T)(T x) if (isMonad!T && is(M.Constructor!(T.Meta.Parameter) == T)) {
             return x.map!(eleft!V);
         }
     }
@@ -128,6 +128,8 @@ template EitherT(MM) {
                 return this.chain!(f => x.map!f);
             }
         }
+
+        alias run this;
     }
 
     template transformer(L) {

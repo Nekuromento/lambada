@@ -9,6 +9,21 @@ template MaybeT(MM) {
         alias M = MM;
     }
 
+    template _hoist(alias f) {
+        template _hoist(T: Transformer!U, U) {
+            import std.traits: ReturnType;
+
+            import lambada.maybe: Maybe;
+            import lambada.traits: toFunctionType;
+
+            alias Return = ReturnType!(toFunctionType!(f, M.Constructor!(Maybe!U)));
+            alias MT = MaybeT!Return;
+            MT!(Return.Meta.Parameter) _hoist(T x) {
+                return typeof(return)(f(x.run));
+            }
+        }
+    }
+
     struct Transformer(T) if (isMonad!(M.Constructor!T)) {
         struct Meta {
             alias Constructor(U) = Transformer!U;
@@ -77,6 +92,8 @@ template MaybeT(MM) {
                 return this.chain!(f => x.map!f);
             }
         }
+
+        alias run this;
     }
 
     auto transformer(T)(T x) if (isMonad!T) {

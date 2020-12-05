@@ -33,6 +33,9 @@ struct State(S, A) {
             import std.typecons: tuple;
             return State!(S, B)((S y) => tuple(x, y));
         }
+        alias get = .get!S;
+        alias put = .put!S;
+        alias modify = .modify;
     }
 
     import std.typecons: Tuple;
@@ -42,7 +45,7 @@ struct State(S, A) {
     alias of = Meta.of;
 
     import std.traits: isCallable, arity;
-    this(F)(F f) if (isCallable!F) {
+    this(F)(F f) if (isCallable!F && arity!F == 1) {
         import lambada.combinators: apply;
         alias x = apply!f;
         this._ = &x!S;
@@ -51,6 +54,7 @@ struct State(S, A) {
     Tuple!(A, S) run(S x) {
         return _(x);
     }
+    alias opCall = run;
 
     A evaluate(S x) {
         return run(x)[0];

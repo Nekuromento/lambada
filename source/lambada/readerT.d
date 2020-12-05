@@ -9,6 +9,27 @@ template ReaderT(MM) {
         alias M = MM;
     }
 
+    template _hoist(alias f) {
+        import std.traits: arity, isCallable, Parameter, ReturnType;
+
+        template _hoist(F) if (isCallable!F &&
+                               arity!F == 1 &&
+                               isMonad!(ReturnType!F) &&
+                               is(M.Constructor!(ReturnType!F.Meta.Parameter) == ReturnType!F)) {
+            alias Return = ReturnType!(toFunctionType!(f, ReturnType!F));
+            alias MT = ReaderT!Return;
+
+            MT!(Parameters!F[0], Return.Meta.Parameter.Meta.Parameter) _hoist(F x) {
+                import std.typecons: tuple;
+
+                import lambada.traits: toFunctionType;
+
+                alias fn = toFunctionType!(f, R);
+                return typeof(return)((Parameters!F[0] s) => f(x(s)).map!(y => tuple(y, s)));
+            }
+        }
+    }
+
     Transformer!(T, T) _ask(T)() if (isMonad!(M.Constructor!T)) {
         return Transformer!(T, T)(&M.of!T);
     }
@@ -27,6 +48,14 @@ template ReaderT(MM) {
         }
     }
 
+    template _fromM(L) {
+        Transformer!(L, T.Meta.Parameter) _fromM(T)(T x) if (isMonad!T && is(M.Constructor!(T.Meta.Parameter) == T)) {
+            import lambada.combinators: compose;
+            alias f = constant!x;
+            return Transformer!(L, T.Meta.Parameter)(&f!L);
+        }
+    }
+
     struct Transformer(L, R) if (isMonad!(M.Constructor!R)) {
         struct Meta {
             alias Constructor(U) = Transformer!(L, U);
@@ -39,6 +68,7 @@ template ReaderT(MM) {
             }
             alias ask = _ask!L;
             alias fromReader = _fromReader;
+            alias fromM = _fromM!L;
         }
 
         M.Constructor!R delegate(L) _;

@@ -9,6 +9,7 @@ import lambada.maybeT;
 import lambada.reader;
 import lambada.readerT;
 import lambada.state;
+import lambada.stateT;
 import lambada.validation;
 import lambada.writer;
 
@@ -47,8 +48,9 @@ void main() {
     writeln(b.run(10));
     auto h = Reader!(int, int delegate(int))((int x) => (int y) => y + x);
     writeln(h.ap(b).run(10));
-
     writeln(just(g).sequence().run(10));
+
+    writeln();
 
     alias MaybeReader = ReaderTMeta!(MaybeMeta, int);
     auto rs = MaybeReader.ask;
@@ -57,6 +59,8 @@ void main() {
     auto rd = MaybeReader.Constructor!int((int x) => just(x + 2));
     writeln(rm.ap(rs.chain!(x => rd.map!(y => x + y))).run(5));
     writeln(rm.ap(re).run(10));
+
+    writeln();
 
     alias ReaderMaybe = MaybeTMeta!(ReaderMeta!int);
     auto ra = ReaderMaybe.of((int x) => x + 2);
@@ -71,6 +75,8 @@ void main() {
     writeln(u);
     auto i = left!(int delegate(int))(true);
     writeln(i.ap(u));
+
+    writeln();
 
     alias MaybeEither = EitherTMeta!(MaybeMeta, int);
     auto me = MaybeEither.of("hi");
@@ -99,6 +105,13 @@ void main() {
     auto q = S.of((int x) => x * 2);
     auto e = S.of(3);
     writeln(q.ap(e).run(1));
+
+    writeln();
+
+    alias MaybeState = StateTMeta!(MaybeMeta, int);
+    auto ma = MaybeState.of((int x) => x + 2);
+    auto mb = MaybeState.of(3);
+    writeln(ma.ap(mb).chain!(x => MaybeState.get.chain!(y => MaybeState.put(y + x))).run(10));
 
     writeln();
 
