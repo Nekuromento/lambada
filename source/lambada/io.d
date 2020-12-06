@@ -25,6 +25,7 @@ struct IO(T) {
     T unsafePerform() {
         return _();
     }
+    alias opCall = unsafePerform;
 
     static if (isCallable!T && arity!T == 1) {
         import std.traits: Parameters, ReturnType;

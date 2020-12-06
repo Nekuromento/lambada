@@ -43,7 +43,7 @@ struct Either(L, R) {
         alias Parameter = R;
         alias of = right;
         static if (isMonoid!L) {
-            enum empty = left!R(L.empty());
+            enum empty = left(L.empty());
         }
         alias left = .left!R;
         alias right = .right!L;
@@ -55,7 +55,7 @@ struct Either(L, R) {
 
     alias of = Meta.of;
     static if (isMonoid!L) {
-        enum empty = Meta.of;
+        enum empty = Meta.empty;
     }
 
     this(Left!L _) {

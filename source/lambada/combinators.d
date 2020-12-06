@@ -48,10 +48,25 @@ auto identity(T)(T x) {
     return x;
 }
 
-// Y combinator
-template fix(alias f) {
-    auto fix(T)(T x) {
-        alias g(alias h) = x => f(h!h)(x);
-        return g!g;
+template fix(F) {
+    import std.traits: isCallable, arity, ReturnType, Parameters;
+
+    static assert(isCallable!F && arity!F == 1);
+    static assert(is(ReturnType!F == Parameters!F[0]));
+    alias Self = ReturnType!F;
+
+    struct W {
+        Self delegate(Self) f;
+
+        Self run(W w) {
+            return f((Parameters!Self x) => w.run(w)(x));
+        }
+    }
+
+    Self fix(F f) {
+        import lambada.combinators: apply;
+        alias x = apply!f;
+        auto w = W(&x!Self);
+        return w.run(w);
     }
 }

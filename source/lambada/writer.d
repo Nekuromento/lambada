@@ -9,18 +9,24 @@ template tell(T) {
     }
 }
 
+import std.traits: arity, isCallable, ReturnType;
+import std.typecons: Tuple;
+
 //XXX: defined as non-member function to avoid infinite recursive instantiation
 //     of writer instances with nesting tuples
-template listen(T: Writer!(W, A), W, A) {
-    import std.typecons: Tuple;
-
-    Writer!(W, Tuple!(A, W)) listen(T x) {
-        return typeof(return)(() {
-            import std.typecons: tuple;
-            auto result = x.run();
-            return tuple(result, result[1]);
-        });
+auto listen(F)(F f) if (isCallable!F &&
+                        arity!F == 0 &&
+                        is(ReturnType!F: Tuple!(L, R), L, R)) {
+    template RightType(R : Tuple!(D, G), D, G) {
+        alias RightType = G;
     }
+    alias R = RightType!(ReturnType!F);
+
+    return Writer!(R, ReturnType!F)(() {
+        import std.typecons: tuple;
+        auto result = f();
+        return tuple(result, result[1]);
+    });
 }
 
 struct Writer(W, A) {
@@ -45,7 +51,6 @@ struct Writer(W, A) {
         alias of = Meta.of;
     }
 
-    import std.traits: arity, isCallable;
     this(F)(F f) if (isCallable!F && arity!F == 0) {
         import lambada.combinators: apply;
         alias x = apply!f;
@@ -55,6 +60,7 @@ struct Writer(W, A) {
     Tuple!(A, W) run() {
         return _();
     }
+    alias opCall = run;
 
     A evaluate() {
         return run()[0];
@@ -65,7 +71,7 @@ struct Writer(W, A) {
     }
 
     static if (isMonoid!W && isCallable!A && arity!A == 1) {
-        import std.traits: Parameters, ReturnType;
+        import std.traits: Parameters;
 
         Writer!(W, ReturnType!A) ap(Writer!(W, Parameters!A[0]) x) {
             return this.chain!(f => x.map!f);
@@ -73,8 +79,6 @@ struct Writer(W, A) {
     }
 
     template listens(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         Writer!(W, Tuple!(A, ReturnType!(toFunctionType!(f, W)))) listens() {
@@ -105,7 +109,7 @@ struct Writer(W, A) {
     }
 
     static if (is(A: Tuple!(B, F), B, F) && isCallable!F && arity!F == 1) {
-        import std.traits: Parameters, ReturnType;
+        import std.traits: Parameters;
 
         static if (is(ReturnType!F == W) && is(Parameters!F[0] == W)) {
             Writer!(W, B) pass() {
@@ -123,8 +127,6 @@ struct Writer(W, A) {
     }
 
     template map(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         Writer!(W, ReturnType!(toFunctionType!(f, A))) map() {
@@ -135,14 +137,12 @@ struct Writer(W, A) {
             return typeof(return)(() {
                 import std.typecons: tuple;
                 auto result = _run();
-                return tuple(f(result._1), result._2);
+                return tuple(f(result[0]), result[1]);
             });
         }
     }
 
     template chain(alias f) if (isMonoid!W) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         alias Return = ReturnType!(toFunctionType!(f, A));

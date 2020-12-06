@@ -19,7 +19,7 @@ struct Validation(L, R) {
     struct Meta {
         alias Constructor(T) = Validation!(L, T);
         alias Parameter = R;
-        alias of = .success!L;
+        alias of = success;
         alias success = .success!L;
         alias failure = .failure!R;
     }
@@ -45,6 +45,16 @@ struct Validation(L, R) {
 
     bool isFailure() {
         return !isSuccess();
+    }
+
+    R getOrElse(R x) {
+        import lambada.combinators: identity, constant;
+        return this.fold!(constant!x, identity);
+    }
+
+    Validation orElse(Validation x) {
+        import lambada.combinators: constant;
+        return this.fold!(constant!x, success!L);
     }
 
     import std.traits: arity, isCallable;
@@ -80,11 +90,19 @@ struct Validation(L, R) {
     }
 
     import lambada.maybe: Maybe;
-    Maybe!R toMaybe() {
+    Maybe!L getFailure() {
+        import lambada.maybe: just, none;
+        import lambada.combinators: constant;
+        return this.fold!(just, constant!(Maybe!L(none)));
+    }
+
+    Maybe!R getSuccess() {
         import lambada.maybe: just, none;
         import lambada.combinators: constant;
         return this.fold!(constant!(Maybe!R(none)), just);
     }
+
+    alias toMaybe = getSuccess;
 
     import lambada.either: Either;
     Either!(L, R) toEither() {
@@ -123,6 +141,13 @@ struct Validation(L, R) {
             (Failure!L l) => f(l._),
             (Success!R r) => g(r._),
         );
+    }
+
+    static if (is(R: Validation!(D, G), D, G) && is(D == L)) {
+        Validation!(L, G) flatten() {
+            import lambada.combinators: identity;
+            return this.chain!identity;
+        }
     }
 
     alias _ this;

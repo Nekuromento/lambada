@@ -1,33 +1,22 @@
-module lambada.eitherT;
+module lambada.validationT;
 
-template rightM(U) {
-    import lambada.traits: isMonad;
-
-    template rightM(T) if (isMonad!T) {
-        alias TT = EitherT!T;
-
-        TT!(U, T.Meta.Parameter) rightM(T x) {
-            import lambada.either: right;
-            return x.map!(right!U);
-        }
+template successM(U) {
+    Transformer!(U, T.Meta.Parameter) successM(T)(T x) if (isMonad!T) {
+        import lambada.validation: success;
+        return x.map!(success!U);
     }
 }
 
-template leftM(V) {
-    import lambada.traits: isMonad;
-
-    template leftM(T) if (isMonad!T) {
-        alias TT = EitherT!T;
-
-        TT!(T.Meta.Parameter, V) leftM(T x) {
-            import lambada.either: left;
-            return x.map!(left!V);
-        }
+template failureM(V) {
+    Transformer!(T.Meta.Parameter, V) failureM(T)(T x) if (isMonad!T) {
+        import lambada.validation: failure;
+        return x.map!(failure!V);
     }
 }
 
-template EitherT(MM) {
+template ValidationT(MM) {
     import lambada.traits: isMonad;
+    import lambada.validation: failure, success;
 
     static if (isMonad!MM) {
         alias M = MM.Meta;
@@ -35,17 +24,15 @@ template EitherT(MM) {
         alias M = MM;
     }
 
-    template _left(V) {
-        Transformer!(U, V) _left(U)(U x) {
-            import lambada.either: left;
-            return transformer!U(M.of(left!V(x)));
+    template _failure(V) {
+        Transformer!(U, V) _failure(U)(U x) {
+            return transformer!U(M.of(failure!V(x)));
         }
     }
 
-    template _right(U) {
-        import lambada.either: right;
+    template _success(U) {
         import lambada.combinators: compose;
-        alias _right = compose!(transformer!U, M.of, right!U);
+        alias _success = compose!(transformer!U, M.of, success!U);
     }
 
     struct Transformer(L, R) if (isMonad!(M.Constructor!R)) {
@@ -53,15 +40,15 @@ template EitherT(MM) {
             alias Constructor(U) = Transformer!(L, U);
             alias Parameter = R;
 
-            alias of = right;
-            alias right = _right!L;
-            alias rightM = .rightM!L;
-            alias left = _left!R;
-            alias leftM = .leftM!R;
+            alias of = success;
+            alias success = _success!L;
+            alias successM = .successM!L;
+            alias failure = _failure!R;
+            alias failureM = .failureM!R;
         }
 
-        import lambada.either: Either;
-        M.Constructor!(Either!(L, R)) run;
+        import lambada.validation: Validation;
+        M.Constructor!(Validation!(L, R)) run;
 
         alias of = Meta.of;
 
@@ -77,10 +64,6 @@ template EitherT(MM) {
             return this.run.map!(e => e.getOrElse(x));
         }
 
-        Transformer!(R, L) swap() {
-            return transformer!R(this.run.map!(e => e.swap()));
-        }
-
         template chain(alias f) {
             import std.traits: ReturnType;
 
@@ -93,12 +76,12 @@ template EitherT(MM) {
             alias U = RightType!Return;
 
             Transformer!(L, U) chain() {
-                import lambada.either: left;
+                import lambada.validation: failure;
                 import lambada.combinators: compose;
 
                 return transformer!L(this.run.chain!(
                     x => x.fold!(
-                        compose!(M.of, left!U),
+                        compose!(M.of, failure!U),
                         r => f(r).run,
                     )
                 ));
@@ -125,18 +108,21 @@ template EitherT(MM) {
             alias r = toFunctionType!(g, R);
 
             Transformer!(ReturnType!l, ReturnType!r) bimap() {
-                import lambada.either: left, right;
+                import lambada.validation: success, failure;
                 import lambada.combinators: compose;
 
-                alias onLeft = compose!(M.of, left!(ReturnType!r), f);
-                alias onRight = compose!(M.of, right!(ReturnType!l), g);
+                alias onLeft = compose!(M.of, failure!(ReturnType!r), f);
+                alias onRight = compose!(M.of, success!(ReturnType!l), g);
 
                 return this.fold!(onLeft, onRight);
             }
         }
 
         import std.traits: arity, isCallable;
-        static if (isCallable!R && arity!R == 1) {
+
+        import lambada.traits: isSemigroup;
+
+        static if (isCallable!R && arity!R == 1 && isSemigroup!L) {
             import std.traits: Parameters, ReturnType;
 
             Transformer!(L, ReturnType!R) ap(Transformer!(L, Parameters!R[0]) x) {
@@ -153,11 +139,11 @@ template EitherT(MM) {
         }
     }
 
-    alias EitherT = Transformer;
+    alias ValidationT = Transformer;
 }
 
-template EitherTMeta(M, L) {
-    alias T = EitherT!M;
-    alias EitherTMeta = T!(L, typeof(null)).Meta;
+template ValidationTMeta(M, L) {
+    alias T = ValidationT!M;
+    alias ValidationTMeta = T!(L, typeof(null)).Meta;
 }
 

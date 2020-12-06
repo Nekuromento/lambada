@@ -22,10 +22,7 @@ template ReaderT(MM) {
             MT!(Parameters!F[0], Return.Meta.Parameter.Meta.Parameter) _hoist(F x) {
                 import std.typecons: tuple;
 
-                import lambada.traits: toFunctionType;
-
-                alias fn = toFunctionType!(f, R);
-                return typeof(return)((Parameters!F[0] s) => f(x(s)).map!(y => tuple(y, s)));
+                return typeof(return)((Parameters!F[0] s) => f(x(s)));
             }
         }
     }

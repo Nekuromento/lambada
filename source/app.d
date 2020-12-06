@@ -11,7 +11,10 @@ import lambada.readerT;
 import lambada.state;
 import lambada.stateT;
 import lambada.validation;
+import lambada.validationT;
 import lambada.writer;
+import lambada.writerT;
+import lambada.combinators;
 
 struct str {
     static str empty() {
@@ -120,8 +123,30 @@ void main() {
     auto c = I.of(3);
     writeln(v.ap(c).map!(x => x + 2).unsafePerform());
 
+    writeln();
+
     alias W = Writer!(str, int);
     auto wa = W(() => tuple(0, str(["hello"])));
     auto wb = tell(str(["world"]));
-    writeln(wa.chain!(x => wb.chain!(_ => W.of(x))).listen().censor!(_ => _).run());
+
+    writeln(wa.chain!(x => wb.chain!(_ => W.of(x))).map!(_ => _).listen().censor!(_ => _).run());
+
+    writeln();
+
+    alias MaybeWriter = WriterTMeta!(MaybeMeta, str);
+    auto mw = MaybeWriter.of((int x) => x + 2);
+    auto mp = MaybeWriter.of(3).map!(_ => _);
+    writeln(mw.ap(mp).listen().censor!(_ => _).run());
+
+    writeln();
+
+    alias MaybeValidation = ValidationTMeta!(MaybeMeta, str);
+    auto mv = MaybeValidation.of((int x) => x + 2);
+    auto vm = MaybeValidation.of(3);
+    writeln(mv.ap(vm).run);
+
+    writeln();
+
+    auto factorial = fix((int delegate(int) self) => (int n) => 0 == n ? 1 : n * self(n - 1));
+    writeln(factorial(10));
 }
