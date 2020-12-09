@@ -47,7 +47,7 @@ template ReaderT(MM) {
 
     template _fromM(L) {
         Transformer!(L, T.Meta.Parameter) _fromM(T)(T x) if (isMonad!T && is(M.Constructor!(T.Meta.Parameter) == T)) {
-            import lambada.combinators: compose;
+            import lambada.combinators: constant;
             alias f = constant!x;
             return Transformer!(L, T.Meta.Parameter)(&f!L);
         }

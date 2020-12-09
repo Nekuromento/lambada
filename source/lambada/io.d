@@ -15,8 +15,8 @@ struct IO(T) {
 
     alias of = Meta.of;
 
-    import std.traits: arity, isCallable;
-    this(F)(F f) if (isCallable!F && arity!F == 0) {
+    import std.traits: isCallable;
+    this(F)(F f) if (isCallable!f) {
         import lambada.combinators: apply;
         alias x = apply!f;
         this._ = &x!();
@@ -27,6 +27,7 @@ struct IO(T) {
     }
     alias opCall = unsafePerform;
 
+    import std.traits: arity;
     static if (isCallable!T && arity!T == 1) {
         import std.traits: Parameters, ReturnType;
 

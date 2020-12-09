@@ -1,28 +1,21 @@
 module lambada.state;
 
+import std.traits: isCallable, ReturnType;
+
 State!(S, S) get(S)() {
     import std.typecons: tuple;
     return State!(S, S)((S x) => tuple(x, x));
 }
 
-template put(T) {
-    alias Empty = typeof(null);
-
-    State!(T, Empty) put(T x) {
-        import lambada.combinators: constant;
-        alias fn = constant!x;
-        return modify!(fn!T);
-    }
+State!(T, typeof(null)) put(T)(T x) {
+    import lambada.combinators: constant;
+    alias fn = constant!x;
+    return modify(&fn!T);
 }
 
-template modify(alias f) {
-    alias Empty = typeof(null);
-
-    import std.traits: ReturnType;
-    State!(ReturnType!f, Empty) modify() {
-        import std.typecons: tuple;
-        return typeof(return)((ReturnType!f s) => tuple(null, f(s)));
-    }
+State!(ReturnType!(F.init), typeof(null)) modify(F)(F f) if (isCallable!f) {
+    import std.typecons: tuple;
+    return typeof(return)((ReturnType!f s) => tuple(null, f(s)));
 }
 
 struct State(S, A) {
@@ -44,8 +37,7 @@ struct State(S, A) {
 
     alias of = Meta.of;
 
-    import std.traits: isCallable, arity;
-    this(F)(F f) if (isCallable!F && arity!F == 1) {
+    this(F)(F f) if (isCallable!f) {
         import lambada.combinators: apply;
         alias x = apply!f;
         this._ = &x!S;
@@ -64,8 +56,9 @@ struct State(S, A) {
         return run(x)[1];
     }
 
+    import std.traits: arity;
     static if (isCallable!A && arity!A == 1) {
-        import std.traits: Parameters, ReturnType;
+        import std.traits: Parameters;
 
         State!(S, ReturnType!A) ap(State!(S, Parameters!A[0]) x) {
             return this.chain!(f => x.map!f);
@@ -73,8 +66,6 @@ struct State(S, A) {
     }
 
     template map(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         State!(S, ReturnType!(toFunctionType!(f, A))) map() {
@@ -84,8 +75,6 @@ struct State(S, A) {
     }
 
     template chain(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         alias Return = ReturnType!(toFunctionType!(f, A));

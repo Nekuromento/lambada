@@ -22,7 +22,7 @@ struct Reader(T, U) {
     alias of = Meta.of;
 
     import std.traits: isCallable;
-    this(F)(F f) if (isCallable!F) {
+    this(F)(F f) if (isCallable!f) {
         import lambada.combinators: apply;
         alias x = apply!f;
         this._ = &x!T;
@@ -33,32 +33,25 @@ struct Reader(T, U) {
     }
     alias opCall = run;
 
-    template local(F) if (isCallable!f && is(ReturnType!f == L)) {
-        import std.traits: Parameters, ReturnType;
+    import std.traits: Parameters, ReturnType;
+    Reader!(Parameters!f[0], R) local(F)(F f) if (isCallable!f && is(ReturnType!f == L)) {
+        import lambada.combinators: compose;
+        //XXX: hack to fix delegates referencing dead objects:
+        //     capture local frame instead of this
+        auto _run = this._;
 
-        Reader!(Parameters!f[0], R) local(F f) {
-            import lambada.combinators: compose;
-            //XXX: hack to fix delegates referencing dead objects:
-            //     capture local frame instead of this
-            auto _run = this._;
-
-            alias x = compose!(_run, f);
-            return typeof(return)(&x!(Parameters!f[0]));
-        }
+        alias x = compose!(_run, f);
+        return typeof(return)(&x!(Parameters!f[0]));
     }
 
     import std.traits: arity;
     static if (isCallable!U && arity!U == 1) {
-        import std.traits: Parameters, ReturnType;
-
         Reader!(T, ReturnType!U) ap(Reader!(T, Parameters!U[0]) x) {
             return this.chain!(f => x.map!f);
         }
     }
 
     template map(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         Reader!(T, ReturnType!(toFunctionType!(f, U))) map() {
@@ -68,8 +61,6 @@ struct Reader(T, U) {
     }
 
     template chain(alias f) {
-        import std.traits: ReturnType;
-
         import lambada.traits: toFunctionType;
 
         alias Return = ReturnType!(toFunctionType!(f, U));

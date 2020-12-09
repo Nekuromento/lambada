@@ -2,6 +2,7 @@ module lambada.stateT;
 
 template StateT(MM) {
     import lambada.traits: isMonad;
+    import std.traits: isCallable, ReturnType;
 
     static if (isMonad!MM) {
         alias M = MM.Meta;
@@ -25,23 +26,15 @@ template StateT(MM) {
         return Transformer!(S, S)((S x) => M.of(tuple(x, x)));
     }
 
-    template _put(T) {
-        alias Empty = typeof(null);
-
-        Transformer!(T, Empty) _put(T x) {
-            import std.typecons: tuple;
-            return typeof(return)((T _) => M.of(tuple(null, x)));
-        }
+    Transformer!(T, typeof(null)) _put(T)(T x) {
+        import lambada.combinators: constant;
+        alias f = constant!x;
+        return _modify(&f!T);
     }
 
-    template _modify(alias f) {
-        alias Empty = typeof(null);
-
-        import std.traits: ReturnType;
-        Transformer!(ReturnType!f, Empty) _modify() {
-            import std.typecons: tuple;
-            return typeof(return)((ReturnType!f s) => M.of(tuple(null, f(s))));
-        }
+    Transformer!(ReturnType!(F.init), typeof(null)) _modify(F)(F f) if (isCallable!f) {
+        import std.typecons: tuple;
+        return typeof(return)((ReturnType!f s) => M.of(tuple(null, f(s))));
     }
 
     Transformer!(L, R) _fromState(T: State!(L, R), L, R)(T x) {
@@ -74,8 +67,7 @@ template StateT(MM) {
         import std.typecons: Tuple;
         M.Constructor!(Tuple!(R, L)) delegate(L) _;
 
-        import std.traits: isCallable, arity;
-        this(F)(F f) if (isCallable!F && arity!F == 1) {
+        this(F)(F f) if (isCallable!f) {
             import lambada.combinators: apply;
             alias x = apply!f;
             this._ = &x!L;
@@ -99,9 +91,11 @@ template StateT(MM) {
         template chain(alias f) {
             import std.traits: ReturnType;
 
-            import lambada.traits: toFunctionType;
+            import lambada.combinators: apply;
 
-            alias Return = ReturnType!(toFunctionType!(f, R));
+            alias fn = apply!f;
+            alias Return = ReturnType!(fn!R);
+            // alias Return = ReturnType!(toFunctionType!(f, R));
             template RightType(T : E!(D, U), alias E, D, U) if (is(T == Transformer!(D, U)) && is(D == L)) {
                 alias RightType = U;
             }
@@ -130,7 +124,7 @@ template StateT(MM) {
             }
         }
 
-        import std.traits: arity, isCallable;
+        import std.traits: arity;
         static if (isCallable!R && arity!R == 1) {
             import std.traits: Parameters, ReturnType;
 
