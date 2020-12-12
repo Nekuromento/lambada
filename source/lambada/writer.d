@@ -22,7 +22,7 @@ auto listen(F)(F f) if (isCallable!F &&
     }
     alias R = RightType!(ReturnType!F);
 
-    return Writer!(R, ReturnType!F)(() {
+    return Writer!(R, ReturnType!F)({
         import std.typecons: tuple;
         auto result = f();
         return tuple(result, result[1]);
@@ -86,7 +86,7 @@ struct Writer(W, A) {
             //     capture local frame instead of this
             auto _run = this._;
 
-            return typeof(return)(() {
+            return typeof(return)({
                 import std.typecons: tuple;
                 auto result = _run();
                 return tuple(tuple(result[0], f(result[1])), result[1]);
@@ -100,7 +100,7 @@ struct Writer(W, A) {
             //     capture local frame instead of this
             auto _run = this._;
 
-            return Writer(() {
+            return Writer({
                 import std.typecons: tuple;
                 auto result = _run();
                 return tuple(result[0], f(result[1]));
@@ -117,7 +117,7 @@ struct Writer(W, A) {
                 //     capture local frame instead of this
                 auto _run = this._;
 
-                return Writer!(W, B)(() {
+                return Writer!(W, B)({
                     import std.typecons: tuple;
                     auto result = _run();
                     return tuple(result[0][0], result[0][1](result[1]));
@@ -134,7 +134,7 @@ struct Writer(W, A) {
             //     capture local frame instead of this
             auto _run = this._;
 
-            return typeof(return)(() {
+            return typeof(return)({
                 import std.typecons: tuple;
                 auto result = _run();
                 return tuple(f(result[0]), result[1]);
@@ -156,7 +156,7 @@ struct Writer(W, A) {
             //     capture local frame instead of this
             auto _run = this._;
 
-            return Writer!(W, G)(() {
+            return Writer!(W, G)({
                 import std.typecons: tuple;
                 auto result = _run();
                 auto t = f(result[0]).run();

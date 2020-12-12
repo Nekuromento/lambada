@@ -1,7 +1,7 @@
 module lambada.traits;
 
 //TODO: make more strict
-enum hasMap(T) = __traits(compiles, T.init.map!(_ => 0));
+enum hasMap(T) = __traits(compiles, T.init.map!(_ => T.Meta.Parameter.init));
 
 enum isFunctor(T) = hasMap!T;
 

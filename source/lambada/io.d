@@ -50,9 +50,10 @@ struct IO(T) {
     template chain(alias f) {
         import std.traits: ReturnType;
 
-        import lambada.traits: toFunctionType;
+        import lambada.combinators: apply;
 
-        alias Return = ReturnType!(toFunctionType!(f, T));
+        alias fn = apply!f;
+        alias Return = ReturnType!(fn!T);
         template Type(I : E!D, alias E, D) if (is(I == IO!D)) {
             alias Type = D;
         }
