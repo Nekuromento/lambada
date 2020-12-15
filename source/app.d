@@ -5,19 +5,17 @@ import std.datetime: dur;
 import std.file: readText;
 import std.parallelism: task;
 import std.stdio: readln, write, writeln;
-import std.algorithm: joiner, sum, map, filter;
-import std.range: iota, chain;
-import std.typecons: tuple, Tuple;
+import std.algorithm: sum, map, filter;
+import std.typecons: tuple;
 import std.random: Random, uniform;
 import std.string: strip, toLower;
-import std.meta: allSatisfy;
 
-import lambada.traits: isApplicative;
 import lambada.combinators: identity, constant, compose;
 import lambada.io: IO, IOMeta;
 import lambada.maybe: tryCatch;
 import lambada.task: Task, TaskMeta, fromIO;
 import lambada.stateT: StateTMeta;
+import lambada.tuple: sequenceAll;
 
 enum readFile = (string file) =>
     IO!string(() => readText(file));
@@ -230,30 +228,10 @@ Task!bool shouldContinue(string name) {
     });
 }
 
-auto sequence(Args...)(auto ref Tuple!Args self) if (allSatisfy!(isApplicative, Args)) {
-    enum args = iota(Args.length)
-        .map!(i => i.to!string)
-        .map!(i => "(Args[" ~ i ~ "].Meta.Parameter _" ~ i ~ ") => ")
-        .joiner;
-    enum _body = "tuple(".chain(
-        iota(Args.length)
-            .map!(i => i.to!string)
-            .map!(i => "_" ~ i)
-            .joiner(",")
-    ).chain(")");
-    alias tupleConstructor = mixin(args.chain(_body).to!string);
-    enum first = q{self[0].map!tupleConstructor};
-    enum rest = iota(Args.length - 1)
-        .map!(i => ".ap(self[" ~ (i + 1).to!string ~ "])")
-        .joiner;
-
-    return mixin(first.chain(rest).to!string);
-}
-
 Task!(typeof(null)) gameLoop(string name) {
     // run `n` tasks in parallel
     return tuple(random(), ask("Dear " ~ name ~ ", please guess a number from 1 to 5"))
-        .sequence()
+        .sequenceAll()
         .chain!(result =>
             parse(result[1]).fold!(
                 x =>
