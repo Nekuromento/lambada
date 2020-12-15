@@ -12,15 +12,15 @@ Maybe!T just(T)(T x) {
 }
 
 template tryCatch(alias f) {
-    import std.meta: AliasSeq;
     import std.traits: ReturnType;
 
-    import lambada.traits: toFunctionType;
+    import lambada.combinators: apply;
 
-    alias Empty = AliasSeq!();
+    alias fn = apply!f;
+    alias Return = ReturnType!(fn!());
 
-    Maybe!(ReturnType!(toFunctionType!(f, Empty))) tryCatch() {
-        scope(failure) return none;
+    Maybe!Return tryCatch() {
+        scope(failure) return Maybe!Return(none);
         return just(f());
     }
 }

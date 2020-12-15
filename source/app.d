@@ -4,13 +4,18 @@ import std.conv: to;
 import std.datetime: dur;
 import std.file: readText;
 import std.parallelism: task;
-import std.stdio: write, writeln;
-import std.algorithm: sum, map, filter;
-import std.range: array;
+import std.stdio: readln, write, writeln;
+import std.algorithm: joiner, sum, map, filter;
+import std.range: iota, chain;
+import std.typecons: tuple, Tuple;
 import std.random: Random, uniform;
+import std.string: strip, toLower;
+import std.meta: allSatisfy;
 
+import lambada.traits: isApplicative;
 import lambada.combinators: identity, constant, compose;
 import lambada.io: IO, IOMeta;
+import lambada.maybe: tryCatch;
 import lambada.task: Task, TaskMeta, fromIO;
 import lambada.stateT: StateTMeta;
 
@@ -73,7 +78,7 @@ void TaskState() {
     program.execute(">").fork();
 }
 
-enum size = 28;
+enum size = 30;
 
 alias Board = bool[][];
 
@@ -136,16 +141,17 @@ enum clearScreen = () =>
         return null;
     });
 
+auto rnd = Random(3);
+
 enum setup = clearScreen;
 
 enum generateBoard = () =>
     IO!Board({
-        auto rnd = Random(0);
         Board board = new bool[][size];
         foreach(x; 0 .. board.length) {
             board[x] = new bool[size];
             foreach(y; 0 .. board[x].length) {
-                board[x][y] = uniform(0.0f, 1.0f, rnd) > 0.9f;
+                board[x][y] = uniform(0.0f, 1.0f, rnd) > 0.85f;
             }
         }
         return board;
@@ -186,8 +192,93 @@ void GameOfComonads() {
     program.unsafePerform();
 }
 
+alias T = TaskMeta;
+
+// read from standard input
+enum getStrLn = () =>
+    Task!string(task!(() => readln().strip));
+
+// write to standard output
+alias putStrLn = compose!(fromIO, println);
+
+// ask something and get the answer
+enum ask = (string question) =>
+    putStrLn(question).chain!(_ => getStrLn());
+
+// get a random int between 1 and 5
+enum random = () =>
+    Task!int(task!(() => uniform!"[]"(1, 5, rnd)));
+
+// parse a string to an integer
+enum parse = (string s) =>
+    tryCatch!(() => s.to!int);
+
+//
+// game
+//
+
+Task!bool shouldContinue(string name) {
+    return ask("Do you want to continue, " ~ name ~ " (y/n)?").chain!((answer) {
+        switch (answer.toLower) {
+            case "y":
+                return T.of(true);
+            case "n":
+                return T.of(false);
+            default:
+                return shouldContinue(name);
+        }
+    });
+}
+
+auto sequence(Args...)(auto ref Tuple!Args self) if (allSatisfy!(isApplicative, Args)) {
+    enum args = iota(Args.length)
+        .map!(i => i.to!string)
+        .map!(i => "(Args[" ~ i ~ "].Meta.Parameter _" ~ i ~ ") => ")
+        .joiner;
+    enum _body = "tuple(".chain(
+        iota(Args.length)
+            .map!(i => i.to!string)
+            .map!(i => "_" ~ i)
+            .joiner(",")
+    ).chain(")");
+    alias tupleConstructor = mixin(args.chain(_body).to!string);
+    enum first = q{self[0].map!tupleConstructor};
+    enum rest = iota(Args.length - 1)
+        .map!(i => ".ap(self[" ~ (i + 1).to!string ~ "])")
+        .joiner;
+
+    return mixin(first.chain(rest).to!string);
+}
+
+Task!(typeof(null)) gameLoop(string name) {
+    // run `n` tasks in parallel
+    return tuple(random(), ask("Dear " ~ name ~ ", please guess a number from 1 to 5"))
+        .sequence()
+        .chain!(result =>
+            parse(result[1]).fold!(
+                x =>
+                    x == result[0]
+                        ? putStrLn("You guessed right, " ~ name ~ "!")
+                        : putStrLn("You guessed wrong, " ~ name ~ "! The number was: " ~ result[0].to!string),
+                _ => putStrLn("You did not enter an integer!"),
+            )
+        )
+        .chain!(_ => shouldContinue(name))
+        .chain!(b => b ? gameLoop(name) : T.of(null));
+}
+
+void FPToTheMax() {
+    auto program = ask("What is your name?")
+        .chain!(name => putStrLn("Hello, " ~ name ~ " welcome to the game!").map!(_ => name))
+        .chain!gameLoop
+    ;
+
+    program.fork();
+}
+
 void main() {
     // IOState();
     // TaskState();
-    GameOfComonads();
+    // GameOfComonads();
+    FPToTheMax();
 }
