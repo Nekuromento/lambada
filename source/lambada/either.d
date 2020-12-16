@@ -113,6 +113,82 @@ struct Either(L, R) {
         }
     }
 
+    import lambada.traits: isSetoid;
+    static if (isSetoid!L && isSetoid!R) {
+        bool opEquals(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(b => a == b, constant!false),
+                a => x.fold!(constant!false, b => a == b)
+            );
+        }
+    } else static if (isSetoid!L && !isSetoid!R) {
+        bool opEquals(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(b => a == b, constant!false),
+                a => x.fold!(constant!false, constant!false)
+            );
+        }
+    } else static if (!isSetoid!L && isSetoid!R) {
+        bool opEquals(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(constant!false, constant!false),
+                a => x.fold!(constant!false, b => a == b)
+            );
+        }
+    }
+    static if (isSetoid!L || isSetoid!R) {
+        bool equals(Either x) {
+            return this == x;
+        }
+    }
+
+    import lambada.traits: isOrd;
+    static if (isOrd!L && isOrd!R) {
+        int opCmp(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(
+                    b => a == b ? 0 : (a < b ? -1 : 1),
+                    constant!(-1)
+                ),
+                a => x.fold!(
+                    constant!1,
+                    b => a == b ? 0 : (a < b ? -1 : 1)
+                )
+            );
+        }
+    } else static if (!isOrd!L && isOrd!R) {
+        int opCmp(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                constant!(-1),
+                a => x.fold!(
+                    constant!1,
+                    b => a == b ? 0 : (a < b ? -1 : 1)
+                )
+            );
+        }
+    } else static if (isOrd!L && !isOrd!R) {
+        int opCmp(Either x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(
+                    b => a == b ? 0 : (a < b ? -1 : 1),
+                    constant!(-1)
+                ),
+                constant!(-1)
+            );
+        }
+    }
+    static if (isOrd!L || isOrd!R) {
+        int compare(Either x) {
+            return this == x ? 0 : (this < x ? -1 : 1);
+        }
+    }
+
     import lambada.traits: isSemigroup;
     static if (isSemigroup!R) {
         Either opBinary(string op)(Either x) if (op == "~") {

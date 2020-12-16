@@ -1,14 +1,16 @@
-module lambada.tuple;
+module lambada.apply;
 
-import std.algorithm: joiner, map;
-import std.conv: to;
 import std.meta: allSatisfy;
-import std.range: iota, chain;
-import std.typecons: tuple, Tuple;
+import std.typecons: Tuple;
 
 import lambada.traits: isApplicative;
 
-auto sequenceAll(Args...)(auto ref Tuple!Args self) if (allSatisfy!(isApplicative, Args)) {
+auto sequence(Args...)(auto ref Tuple!Args self) if (allSatisfy!(isApplicative, Args)) {
+    import std.algorithm: joiner, map;
+    import std.conv: to;
+    import std.range: iota, chain;
+    import std.typecons: tuple;
+
     enum args = iota(Args.length)
         .map!(i => i.to!string)
         .map!(i => "(Args[" ~ i ~ "].Meta.Parameter _" ~ i ~ ") => ")

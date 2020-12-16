@@ -30,6 +30,16 @@ enum hasEmpty(T) = __traits(compiles, T.empty()) &&
 
 enum isMonoid(T) = isSemigroup!T && hasEmpty!T;
 
+template isSetoid(T) {
+    import std.traits: isEqualityComparable;
+    enum isSetoid = isEqualityComparable!T;
+}
+
+template isOrd(T) {
+    import std.traits: isOrderingComparable;
+    enum isOrd = isOrderingComparable!T;
+}
+
 template toFunctionType(alias f, T) {
     import std.traits: isCallable;
 

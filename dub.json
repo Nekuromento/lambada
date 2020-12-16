@@ -8,5 +8,31 @@
     },
     "description": "Functional Programming for D",
     "license": "boost",
-    "name": "fpd"
+    "name": "lambada",
+    "configurations": [
+        {
+            "name": "library",
+            "targetType": "library"
+        },
+        {
+            "name": "example/io-state",
+            "targetType": "executable",
+            "versions": ["Example_IOState"]
+        },
+        {
+            "name": "example/task-state",
+            "targetType": "executable",
+            "versions": ["Example_TaskState"]
+        },
+        {
+            "name": "example/fp-to-the-max",
+            "targetType": "executable",
+            "versions": ["Example_FPToTheMax"]
+        },
+        {
+            "name": "example/game-of-comonads",
+            "targetType": "executable",
+            "versions": ["Example_GameOfComonads"]
+        }
+    ]
 }

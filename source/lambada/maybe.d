@@ -85,6 +85,36 @@ struct Maybe(T) {
         }
     }
 
+    import lambada.traits: isSetoid;
+    static if (isSetoid!T) {
+        bool opEquals(Maybe x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(b => a == b, constant!false),
+                _ => x.fold!(constant!false, constant!true)
+            );
+        }
+
+        bool equals(Maybe x) {
+            return this == x;
+        }
+    }
+
+    import lambada.traits: isOrd;
+    static if (isOrd!T) {
+        int opCmp(Maybe x) {
+            import lambada.combinators: constant;
+            return this.fold!(
+                a => x.fold!(b => a == b ? 0 : (a < b ? -1 : 1), constant!1),
+                _ => x.fold!(constant!(-1), constant!0)
+            );
+        }
+
+        int compare(Maybe x) {
+            return this == x ? 0 : (this < x ? -1 : 1);
+        }
+    }
+
     import lambada.traits: isSemigroup;
     static if (isSemigroup!T) {
         Maybe opBinary(string op)(Maybe x) if (op == "~") {
@@ -185,14 +215,26 @@ struct Maybe(T) {
         import lambada.traits: toFunctionType;
 
         alias Return = ReturnType!(toFunctionType!(f, T));
+        static assert(isApplicative!Return);
 
-        static if (isApplicative!Return) {
-            Return.Meta.Constructor!(Maybe!(Return.Meta.Parameter)) traverse() {
-                return this.fold!(
-                    x => f(x).map!just,
-                    _ => Return.of(Maybe!(Return.Meta.Parameter)(none))
-                );
-            }
+        Return.Meta.Constructor!(Maybe!(Return.Meta.Parameter)) traverse() {
+            return this.fold!(
+                x => f(x).map!just,
+                _ => Return.of(Maybe!(Return.Meta.Parameter)(none))
+            );
+        }
+    }
+
+    template extend(alias f) {
+        import std.traits: ReturnType;
+
+        import lambada.traits: toFunctionType;
+
+        alias Return = ReturnType!(toFunctionType!(f, Maybe));
+
+        Maybe!Return extend() {
+            import lambada.combinators: identity;
+            return this.fold!(_ => just(f(this)), identity);
         }
     }
 }
