@@ -8,6 +8,7 @@ import std.stdio: writeln;
 import lambada.combinators: constant, compose;
 import lambada.io: IO;
 import lambada.task: Task, TaskMeta, fromIO;
+import lambada.callable: curry;
 import lambada.stateT: StateTMeta;
 
 enum println = (string t) =>
@@ -16,8 +17,7 @@ enum println = (string t) =>
         return null;
     });
 
-enum prependTo = (string a) =>
-    (string b) => b ~ a;
+enum prependTo = ((string a, string b) => b ~ a).curry;
 
 enum question = () =>
     TaskMeta.of("What is the answer to Life, the Universe and Everything?\n");
@@ -41,7 +41,7 @@ void example() {
     auto program = M.fromM(question())
         .chain!(compose!(M.modify, prependTo))
         .chain!(_ => M.fromM(deepThought()))
-        .map!(x => x.to!string)
+        .map!(to!string)
         .chain!(compose!(M.modify, prependTo))
         .chain!(constant!(M.get))
         .chain!(compose!(M.fromM, fromIO, println))

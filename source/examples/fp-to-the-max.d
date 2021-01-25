@@ -6,12 +6,18 @@ import std.stdio: readln, writeln;
 import std.typecons: tuple;
 import std.random: Random, uniform;
 import std.string: strip, toLower;
+import std.traits: ReturnType;
 
 import lambada.combinators: compose;
 import lambada.io: IO;
 import lambada.maybe: tryCatch;
 import lambada.task: Task, TaskMeta, fromIO;
 import lambada.apply: sequence;
+
+
+auto toTask(alias f)() {
+    return Task!(ReturnType!f)(task!f);
+}
 
 enum println = (string t) =>
     IO!(typeof(null))({
@@ -25,7 +31,7 @@ alias T = TaskMeta;
 
 // read from standard input
 enum getStrLn = () =>
-    Task!string(task!(() => readln().strip));
+    toTask!(() => readln().strip);
 
 // write to standard output
 alias putStrLn = compose!(fromIO, println);
@@ -36,7 +42,7 @@ enum ask = (string question) =>
 
 // get a random int between 1 and 5
 enum random = () =>
-    Task!int(task!(() => uniform!"[]"(1, 5, rnd)));
+    toTask!(() => uniform!"[]"(1, 5, rnd));
 
 // parse a string to an integer
 enum parse = (string s) =>

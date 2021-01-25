@@ -1,5 +1,9 @@
 module lambada.combinators;
 
+public {
+    import std.functional: compose, pipe, flip = reverseArgs;
+}
+
 import std.traits: ReturnType;
 
 import lambada.traits: toFunctionType;
@@ -16,31 +20,35 @@ template constant(alias x) {
     }
 }
 
-template compose(alias f, alias g) {
-    auto compose(T...)(T x) {
-        return f(g(x));
+template substitution(alias f, alias g) {
+    auto substitution(T...)(T x) {
+        return f(x)(g(x));
     }
 }
 
-template compose(alias f, alias g, alias h) {
-    auto compose(T...)(T x) {
-        return f(g(h(x)));
-    }
-}
-
-template flip(alias f) {
-    private struct Wrapper(alias a) {
-        auto opCall(U)(U b) {
-            return f(b)(a);
+template psy(alias f, alias g) {
+    struct Y(T) {
+        T x;
+        auto opCall(T...)(T y) {
+            return f(g(x))(g(y));
         }
     }
-
-    private Wrapper!T wrap(T)(T a) {
-        return Wrapper!a.init;
+    struct X {
+        auto opCall(T...)(T x) {
+            Y!T y;
+            y.x = x;
+            return y;
+        }
     }
+    auto psy() {
+        return X.init;
+    }
+}
 
-    auto flip(T)(T a) {
-        return wrap(a);
+template thrush(alias x) {
+    import std.traits: isCallable;
+    auto thrush(F)(F f) if (isCallable!f) {
+        return f(x);
     }
 }
 

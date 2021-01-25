@@ -4,6 +4,8 @@ import core.thread: Thread;
 
 import std.datetime: dur;
 import std.stdio: write;
+import std.array: array;
+import std.range: iota;
 import std.algorithm: sum, map, filter;
 import std.random: Random, uniform;
 
@@ -24,7 +26,7 @@ struct Pointer {
     Board board;
     Pos pos;
 
-    Pointer updatePos(Pos x) {
+    auto updatePos(Pos x) {
         return Pointer(board, x);
     }
 
@@ -32,14 +34,17 @@ struct Pointer {
         return board[pos.x][pos.y];
     }
 
-    Pointer extend(alias f)() {
-        Board board = this.board.dup;
-        foreach(x; 0 .. board.length) {
-            foreach(y; 0 .. board[x].length) {
-                board[x][y] = f(Pointer(board, Pos(x, y)));
-            }
-        }
-        return Pointer(board, pos);
+    auto extend(alias f)() {
+        return Pointer(
+            iota(board.length)
+                .map!(
+                    x => iota(board[x].length)
+                        .map!(y => f(Pointer(board, Pos(x, y))))
+                        .array
+                )
+                .array,
+            pos
+        );
     }
 }
 
@@ -73,20 +78,19 @@ enum clearScreen = () =>
         return null;
     });
 
-auto rnd = Random(3);
+auto rnd = Random(42);
 
 enum setup = clearScreen;
 
 enum generateBoard = () =>
     IO!Board({
-        Board board = new bool[][size];
-        foreach(x; 0 .. board.length) {
-            board[x] = new bool[size];
-            foreach(y; 0 .. board[x].length) {
-                board[x][y] = uniform(0.0f, 1.0f, rnd) > 0.85f;
-            }
-        }
-        return board;
+        return iota(size)
+            .map!(
+                _ => iota(size)
+                    .map!(_ => uniform(0.0f, 1.0f, rnd) > 0.85f)
+                    .array
+            )
+            .array;
     });
 
 enum drawBoard = (Board board) =>
@@ -106,7 +110,7 @@ enum drawBoard = (Board board) =>
 
 enum sleep = () =>
     IO!(typeof(null))({
-        Thread.sleep(dur!"msecs"(66));
+        Thread.sleep(dur!"msecs"(90));
         return null;
     });
 
